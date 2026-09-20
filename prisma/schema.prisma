@@ -1,0 +1,211 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  STUDENT
+}
+
+enum EnrollmentStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  name          String
+  phone         String?
+  role          Role           @default(STUDENT)
+  emailVerified DateTime?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  student       Student?
+  loginHistory  LoginHistory[]
+  devices       Device[]
+  securityLogs  SecurityLog[]
+  announcements Announcement[]
+
+  @@map("users")
+}
+
+model Student {
+  id            String            @id @default(cuid())
+  userId        String            @unique
+  studentCode   String            @unique
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enrollments   Enrollment[]
+  progress      LectureProgress[]
+  watchSessions WatchSession[]
+  createdAt     DateTime          @default(now())
+
+  @@map("students")
+}
+
+model Course {
+  id          String         @id @default(cuid())
+  title       String
+  slug        String         @unique
+  description String?
+  thumbnail   String?
+  price       Decimal        @default(0)
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  subjects    Subject[]
+  enrollments Enrollment[]
+
+  @@map("courses")
+}
+
+model Subject {
+  id          String    @id @default(cuid())
+  courseId    String
+  title       String
+  description String?
+  order       Int       @default(0)
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  chapters    Chapter[]
+
+  @@map("subjects")
+}
+
+model Chapter {
+  id        String    @id @default(cuid())
+  subjectId String
+  title     String
+  order     Int       @default(0)
+  subject   Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  lectures  Lecture[]
+
+  @@map("chapters")
+}
+
+model Lecture {
+  id           String            @id @default(cuid())
+  chapterId    String
+  title        String
+  description  String?
+  duration     Int               @default(0)
+  order        Int               @default(0)
+  isLocked     Boolean           @default(false)
+  chapter      Chapter           @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  progress     LectureProgress[]
+  watchSessions WatchSession[]
+
+  @@map("lectures")
+}
+
+model Enrollment {
+  id         String           @id @default(cuid())
+  studentId  String
+  courseId   String
+  status     EnrollmentStatus @default(PENDING)
+  expiresAt  DateTime?
+  enrolledAt DateTime         @default(now())
+  student    Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course     Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, courseId])
+  @@map("enrollments")
+}
+
+model LectureProgress {
+  id                String         @id @default(cuid())
+  studentId         String
+  lectureId         String
+  status            ProgressStatus @default(NOT_STARTED)
+  lastPosition      Int            @default(0)
+  watchedSeconds    Int            @default(0)
+  completionPercent Int            @default(0)
+  lastAccessedAt    DateTime       @default(now())
+  student           Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  lecture           Lecture        @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, lectureId])
+  @@map("lecture_progress")
+}
+
+model WatchSession {
+  id         String   @id @default(cuid())
+  studentId  String
+  lectureId  String
+  ipAddress  String?
+  startedAt  DateTime @default(now())
+  endedAt    DateTime?
+  isActive   Boolean  @default(true)
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  lecture    Lecture  @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+
+  @@map("watch_sessions")
+}
+
+model Device {
+  id         String   @id @default(cuid())
+  userId     String
+  deviceInfo String
+  lastActive DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("devices")
+}
+
+model LoginHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  ipAddress String?
+  userAgent String?
+  success   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("login_history")
+}
+
+model SecurityLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  eventType String
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@map("security_logs")
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  authorId  String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  author    User     @relation(fields: [authorId], references: [id])
+
+  @@map("announcements")
+}
