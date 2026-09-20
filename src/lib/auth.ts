@@ -23,7 +23,8 @@ export async function createSession(userId: string, role: string) {
     .setExpirationTime("7d")
     .sign(JWT_SECRET);
 
-  cookies().set(SESSION_COOKIE, token, {
+  const cookieStore = await cookies();
+  cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -35,7 +36,8 @@ export async function createSession(userId: string, role: string) {
 }
 
 export async function getSession() {
-  const token = cookies().get(SESSION_COOKIE)?.value;
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
@@ -46,5 +48,6 @@ export async function getSession() {
 }
 
 export async function destroySession() {
-  cookies().delete(SESSION_COOKIE);
+  const cookieStore = await cookies();
+  cookieStore.delete(SESSION_COOKIE);
 }
